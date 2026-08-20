@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import quote
 
 from .models import Entry
 
@@ -34,7 +35,8 @@ def render_entry(entry: Entry) -> str:
     if digest.priority_reason:
         lines.append(f"- **是否值得读**：{digest.priority_reason}")
 
-    relative_snapshot = f"../{entry.snapshot_path}"
+    # 标题里的中文标点会进文件名，链接必须编码，否则 GitHub 上点不开
+    relative_snapshot = quote(f"../{entry.snapshot_path}", safe="/.")
     lines.append(
         f"- **链接**：[原文]({article.url}) ｜ [全文快照]({relative_snapshot})"
     )

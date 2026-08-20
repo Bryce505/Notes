@@ -56,3 +56,12 @@ def test_条目包含全部字段(entry):
 def test_缺少发布时间时显示未知(entry):
     entry.article.published_at = None
     assert "**发布**：未知" in md_writer.render_entry(entry)
+
+
+def test_快照链接做_url_编码(entry):
+    entry.article.title = "Cpk为什么要大于1.33？1.33和1.67 这两条线"
+    rendered = md_writer.render_entry(entry)
+    link = rendered.split("[全文快照](")[1].split(")")[0]
+    assert "？" not in link, "全角标点必须编码，否则 GitHub 上链接失效"
+    assert link.startswith("../archive/2026-08/")
+    assert link.endswith(".md")
