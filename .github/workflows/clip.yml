@@ -1,0 +1,85 @@
+name: 剪藏公众号文章
+
+on:
+  repository_dispatch:
+    types: [clip]
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 文章链接，多条用换行分隔；可用 TAB 在链接后指定剪藏日期(YYYY-MM-DD)
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: clip
+  cancel-in-progress: false
+
+jobs:
+  clip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 处理链接
+        env:
+          PYTHONPATH: src
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          # 外部输入一律走环境变量，不拼进命令行，避免注入
+          CLIP_URL: ${{ github.event.client_payload.url }}
+          CLIP_URLS: ${{ github.event.inputs.urls }}
+        run: |
+          if [ -n "$CLIP_URL" ]; then
+            python -m clipper clip "$CLIP_URL"
+          else
+            printf '%s\n' "$CLIP_URLS" > /tmp/links.txt
+            python -m clipper batch /tmp/links.txt
+          fi
+
+      - name: 提交结果
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notes archive data 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "没有新增内容，跳过提交"
+            exit 0
+          fi
+          git commit -m "剪藏：$(date -u +'%Y-%m-%d %H:%M') UTC"
+          for i in 1 2 3; do
+            git pull --rebase --autostash && git push && exit 0
+            sleep 5
+          done
+          echo "推送失败" && exit 1
+
+      - name: 失败时开 Issue 记录
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = context.payload.client_payload?.url
+              || context.payload.inputs?.urls
+              || '（未知链接）';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `剪藏失败：${String(url).slice(0, 80)}`,
+              body: `链接：\n\n${url}\n\n运行日志：${runUrl}\n\n修好后可在 Actions 里用 workflow_dispatch 重跑这条链接。`,
+              labels: ['clip-failed'],
+            });

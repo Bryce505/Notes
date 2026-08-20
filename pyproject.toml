@@ -1,0 +1,19 @@
+[project]
+name = "weixin-note-clipper"
+version = "0.1.0"
+description = "微信公众号文章剪藏助手：抓取正文、AI 消化、写入 Notion 与 GitHub 归档"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
