@@ -21,6 +21,7 @@ class Result:
     title: str = ""
     message: str = ""
     notion_page_id: Optional[str] = None
+    notion_error: str = ""  # Notion 写入失败原因，非空时整体视为失败
 
 
 def clip(
@@ -71,12 +72,14 @@ def clip(
 
             notion_page_id = NotionWriter(config).create_page(entry)
         except Exception as exc:  # noqa: BLE001 - Notion 失败不阻断 md 写入
-            notion_error = f"（Notion 写入失败：{exc}）"
+            notion_error = str(exc)
 
     notes_path, snapshot_path = md_writer.write(entry, config.repo_dir)
     store.add(entry, notion_page_id)
 
-    message = f"已写入 {notes_path} 与 {snapshot_path}{notion_error}"
+    message = f"已写入 {notes_path} 与 {snapshot_path}"
+    if notion_error:
+        message += "，但 Notion 写入失败"
     if digest.failed:
         message += "（AI 降级处理）"
     return Result(
@@ -85,4 +88,5 @@ def clip(
         title=entry.title,
         message=message,
         notion_page_id=notion_page_id,
+        notion_error=notion_error,
     )

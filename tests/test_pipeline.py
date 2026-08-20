@@ -85,3 +85,25 @@ def test_dry_run_不落盘(config, fake_fetch, fake_ai, tmp_path):
     assert result.status == "created"
     assert not (tmp_path / "notes").exists()
     assert not store.is_duplicate("https://mp.weixin.qq.com/s/AbCdEf123")
+
+
+def test_notion_失败时记录原因但仍写_md(config, fake_fetch, fake_ai, tmp_path, monkeypatch):
+    """Notion 挂了不能丢内容，但失败原因必须留在结果里，好让上层报错。"""
+    config.notion_token = "t"
+    config.notion_database_id = "db"
+
+    import clipper.notion_writer as nw
+
+    class Boom:
+        def __init__(self, cfg):
+            pass
+
+        def create_page(self, entry):
+            raise RuntimeError("multiple data sources not supported")
+
+    monkeypatch.setattr(nw, "NotionWriter", Boom)
+    result = clip("https://mp.weixin.qq.com/s/AbCdEf123", config, Store(config.repo_dir))
+
+    assert result.status == "created"
+    assert "multiple data sources" in result.notion_error
+    assert (tmp_path / "notes" / "2026-08.md").exists()

@@ -89,7 +89,17 @@ def _report(results: List[Result]) -> int:
         print("失败链接：")
         for result in failed:
             print(f"  {result.url} —— {result.message}")
-    return 1 if failed else 0
+
+    notion_failed = [r for r in results if r.notion_error]
+    if notion_failed:
+        # md 归档已写好，内容没丢，但必须让人看见 Notion 没写进去
+        print("")
+        print(f"Notion 写入失败 {len(notion_failed)} 条（md 归档已保存，内容未丢失）：")
+        for result in notion_failed:
+            print(f"  {result.title or result.url}")
+            print(f"    {result.notion_error}")
+
+    return 1 if failed or notion_failed else 0
 
 
 if __name__ == "__main__":
