@@ -73,31 +73,48 @@ def truncate(content: str, limit: int) -> str:
     return f"{content[:head]}\n\n……（此处省略中间内容）……\n\n{content[-tail:]}"
 
 
+def endpoint(base_url: str) -> str:
+    """兼容填 https://api.x.com 和 https://api.x.com/v1 两种写法。"""
+    base = base_url.rstrip("/")
+    return f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
+
+
 def _call(prompt: str, config: Config) -> str:
     if not config.ai_api_key:
         raise AIError("未配置 AI_API_KEY")
 
-    response = requests.post(
-        f"{config.ai_base_url}/v1/chat/completions"
-        if not config.ai_base_url.endswith("/v1")
-        else f"{config.ai_base_url}/chat/completions",
+    payload = {
+        "model": config.ai_model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"},
+    }
+    response = _post(payload, config)
+
+    # 有些模型不支持强制 JSON 模式，去掉该参数重试一次；
+    # 系统提示词本身已要求只输出 JSON，_parse 也能从代码块里抠出来
+    if response.status_code == 400 and "response_format" in response.text:
+        payload.pop("response_format")
+        response = _post(payload, config)
+
+    if response.status_code >= 400:
+        raise AIError(f"HTTP {response.status_code}：{response.text[:200]}")
+    return response.json()["choices"][0]["message"]["content"]
+
+
+def _post(payload: dict, config: Config):
+    return requests.post(
+        endpoint(config.ai_base_url),
         headers={
             "Authorization": f"Bearer {config.ai_api_key}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": config.ai_model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.3,
-            "response_format": {"type": "json_object"},
-        },
+        json=payload,
         timeout=config.request_timeout * 4,
     )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
 
 
 def _parse(raw: str) -> Digest:

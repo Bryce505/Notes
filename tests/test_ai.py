@@ -62,3 +62,31 @@ def test_调用失败时降级不抛异常(article, config, monkeypatch):
     assert isinstance(result, Digest)
     assert result.failed is True
     assert "AI 处理失败" in result.summary
+
+
+def test_端点兼容两种_base_url_写法():
+    assert ai.endpoint("https://api.deepseek.com") == "https://api.deepseek.com/v1/chat/completions"
+    assert ai.endpoint("https://api.deepseek.com/") == "https://api.deepseek.com/v1/chat/completions"
+    assert ai.endpoint("https://api.x.com/v1") == "https://api.x.com/v1/chat/completions"
+
+
+def test_模型不支持_json_模式时自动去掉该参数重试(config, monkeypatch):
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, status, text, data=None):
+            self.status_code, self.text, self._data = status, text, data
+
+        def json(self):
+            return self._data
+
+    def fake_post(payload, cfg):
+        calls.append(payload.copy())
+        if "response_format" in payload:
+            return FakeResponse(400, '{"error":"response_format not supported"}')
+        return FakeResponse(200, "", {"choices": [{"message": {"content": RAW}}]})
+
+    monkeypatch.setattr(ai, "_post", fake_post)
+    assert ai._call("prompt", config) == RAW
+    assert len(calls) == 2
+    assert "response_format" in calls[0] and "response_format" not in calls[1]
