@@ -1,6 +1,9 @@
 """抓取 X（原推特）帖子。
 
-走 X 网页嵌入推文用的公开接口（免鉴权、免 Cookie），失败时回退到社区镜像。
+两个免鉴权接口，**镜像优先**：实测官方嵌入接口把长推文截断在 280 字符
+（且不给 note_tweet 补），长文只给标题和一小段预览，正文只有镜像拿得到。
+官方接口降为兜底，镜像挂掉时至少还有短帖全文、长文标题与预览。
+
 接口响应结构变化时只需要改这一个文件，测试有 JSON fixture 兜底。
 """
 
@@ -17,9 +20,9 @@ import requests
 from .fetcher import FetchError
 from .models import Article
 
-SYNDICATION = "https://cdn.syndication.twimg.com/tweet-result"
-# ponytail: 官方接口偶尔对机房 IP 返回 404，镜像只做兜底；若官方接口长期稳定可直接删掉这一路
 MIRROR = "https://api.fxtwitter.com/i/status/{post_id}"
+# ponytail: 官方接口的正文残缺，只当兜底用；哪天它肯给全文了，就把它调回第一顺位
+SYNDICATION = "https://cdn.syndication.twimg.com/tweet-result"
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -41,15 +44,15 @@ def tweet_id(url: str) -> Optional[str]:
 
 
 def fetch(url: str, timeout: int = 30, retries: int = 3) -> Article:
-    """先试官方嵌入接口，失败再试镜像；两条路都不通才算抓取失败。"""
+    """先试镜像（正文最全），失败再试官方接口；两条路都不通才算抓取失败。"""
     post_id = tweet_id(url)
     if not post_id:
         raise FetchError(f"不是 X 帖子链接：{url}")
 
     errors: List[str] = []
     targets = (
-        (f"{SYNDICATION}?id={post_id}&lang=zh-cn&token={_token(post_id)}", parse),
         (MIRROR.format(post_id=post_id), parse_mirror),
+        (f"{SYNDICATION}?id={post_id}&lang=zh-cn&token={_token(post_id)}", parse),
     )
     for target, parser in targets:
         try:
@@ -64,11 +67,9 @@ def parse(data: dict, url: str) -> Article:
     if data.get("__typename") in ("TweetTombstone", "TweetUnavailable"):
         raise FetchError(f"帖子已删除或不可见：{url}")
 
-    if data.get("article"):
-        # X 长文：这个接口只给标题和一小段预览，正文在镜像那边，让 fetch 继续往下试
-        raise FetchError(f"X 长文，官方接口没有正文：{url}")
-
-    text = _clean(data)
+    # 长文的正文这个接口给不了，只能退到预览；长推文拿到的也只有前 280 字符
+    article = data.get("article") or {}
+    text = str(article.get("preview_text") or "").strip() if article else _clean(data)
     if not text:
         raise FetchError(f"帖子正文为空：{url}")
 
@@ -84,7 +85,8 @@ def parse(data: dict, url: str) -> Article:
 
     return Article(
         url=url,
-        title="",  # 帖子没有标题，留空由 AI 拟；AI 也失败时 Entry 会用正文首句兜底
+        # 长文有作者写的真标题；普通帖子没有标题，留空由 AI 拟
+        title=str(article.get("title") or "").strip(),
         content="\n\n".join(s for s in sections if s),
         published_at=_date(data.get("created_at")),
         account=_account(data.get("user")),

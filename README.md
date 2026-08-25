@@ -39,7 +39,7 @@ GitHub Actions（Python，约 15 秒）
       ├─ 查重（data/index.json）
       ├─ 抓取正文 ── 按域名分流
       │     ├─ mp.weixin.qq.com → 解析文章页面
-      │     └─ x.com / twitter.com → X 嵌入接口（长文与失败时回退社区镜像）
+      │     └─ x.com / twitter.com → fxtwitter 镜像（失败回退 X 官方嵌入接口）
       ├─ AI 消化（摘要 / 关键词 / 洞见 / 优先级；X 帖子额外要求拟中文标题）
       ├─ 写 Notion（公众号库 / X 库，按来源选）
       └─ 写 md 归档并自动提交（notes/ 与 notes/x/）
@@ -57,7 +57,7 @@ GitHub Actions（Python，约 15 秒）
 | `archive/x/YYYY-MM/*.md` | 每条 X 帖子的全文快照 |
 | `data/index.json` | 剪藏索引，用于查重 |
 | `src/clipper/` | 处理流水线源码 |
-| `tests/` | 单元测试（93 项） |
+| `tests/` | 单元测试（96 项） |
 | `docs/superpowers/specs/` | 设计文档 |
 
 ---
@@ -276,7 +276,7 @@ NOTION_TOKEN=<你的令牌> python -m clipper init-notion --parent-page <页面I
 
 一条帖子会抓到：正文（**长推文取完整全文**，不是被截断的那段）、作者、发布时间、它引用的帖子、它回复的上一条；图片和视频以 `[图片]` / `[视频]` 占位，`t.co` 短链还原成原始链接。
 
-**X 长文（Article）**也支持。这类帖子本体只有一个指向文章的链接，正文在 `x.com/i/article/<id>` 里——官方嵌入接口只给标题和一小段预览，所以遇到长文会自动改走镜像接口取全文，标题直接用作者写的那个。
+**X 长文（Article）**也支持。这类帖子本体只有一个指向文章的链接，正文在 `x.com/i/article/<id>` 里，标题直接用作者写的那个。
 
 ---
 
@@ -379,9 +379,11 @@ gh issue list --repo Bryce505/Notes --label clip-failed   # 失败记录
 
 **X 只抓当前这一条**：不做整串 thread 回溯。X 没有免鉴权的会话接口，要拿全串得引 headless 浏览器或付费 API，成本远超收益。帖子本身的长推文全文、引用的帖子、回复的上一条都会抓到（这三样在同一份响应里就有）。
 
-**X 抓取走的是嵌入接口**：用的是网页里嵌入推文所用的公开接口，免鉴权免 Cookie，但它不保证长期可用；官方接口失败时会自动回退到社区镜像 `api.fxtwitter.com`。受保护账号、已删除的帖子抓不到，会开 Issue 记录。
+**X 抓取主要依赖社区镜像 `api.fxtwitter.com`**：X 官方的嵌入接口虽然更"正统"，但实测正文残缺得厉害——超过 280 字符的长推文被直接截断且不给补全字段，长文只返回标题和约 80 字预览。三条真实帖子对照下来官方接口全军覆没，所以镜像被排在第一顺位，官方接口降为兜底。
 
-**X 长文依赖镜像接口**：官方嵌入接口对长文只返回标题和约 80 字预览，全文只有镜像 `api.fxtwitter.com` 给。镜像哪天挂了，长文就会剪藏失败并开 Issue（普通帖子不受影响，官方接口够用）。
+代价有两条，都摆在明面上：① 镜像是第三方志愿服务，不保证长期可用，挂掉时会退回官方接口，长推文会截断、长文只剩标题和预览；② 你剪藏了哪些帖子，这个第三方服务能看到。介意的话把 `src/clipper/x_fetcher.py` 里 `targets` 的两行顺序调回来即可，代价是长内容抓不全。
+
+受保护账号、已删除的帖子两个接口都抓不到，会开 Issue 记录。
 
 **图片不入库**：正文中的图片以 `[图片]` 占位，微信图床有防盗链，存链接也显示不出来。
 
@@ -390,7 +392,7 @@ gh issue list --repo Bryce505/Notes --label clip-failed   # 失败记录
 # 六、本地开发
 
 ```bash
-python -m pytest -q      # 93 项测试
+python -m pytest -q      # 96 项测试
 ```
 
 本机固定使用 `D:\Anaconda\envs\dev\python.exe`，运行前设 `PYTHONNOUSERSITE=1`；安装依赖须带代理参数：
@@ -404,7 +406,7 @@ pip install -r requirements.txt --proxy http://127.0.0.1:7897 --trusted-host pyp
 | 模块 | 职责 |
 |---|---|
 | `fetcher.py` | 抓取并解析微信页面 |
-| `x_fetcher.py` | 抓取并解析 X 帖子（官方嵌入接口 + 镜像回退） |
+| `x_fetcher.py` | 抓取并解析 X 帖子（镜像优先 + 官方嵌入接口兜底） |
 | `ai.py` | 调 AI 生成摘要 / 关键词 / 洞见 / 优先级 |
 | `notion_writer.py` | 写 Notion 属性与正文块（含 2000 字符、100 块的分批处理） |
 | `md_writer.py` | 写月度索引与全文快照 |

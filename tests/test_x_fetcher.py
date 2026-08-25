@@ -131,32 +131,60 @@ def test_镜像接口响应也能解析():
     assert "t.co" not in article.content
 
 
-def test_官方接口失败时回退到镜像(monkeypatch):
+class FakeResponse:
+    def __init__(self, status, data):
+        self.status_code, self._data = status, data
+
+    def json(self):
+        return self._data
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+def test_优先走镜像接口(monkeypatch):
+    """官方嵌入接口把长推文截断在 280 字符、长文只给预览，全文只有镜像有。"""
     calls = []
-
-    class FakeResponse:
-        def __init__(self, status, data):
-            self.status_code, self._data = status, data
-
-        def json(self):
-            return self._data
-
-        def raise_for_status(self):
-            if self.status_code >= 400:
-                raise RuntimeError(f"HTTP {self.status_code}")
 
     def fake_get(url, **kwargs):
         calls.append(url)
-        if "syndication" in url:
-            return FakeResponse(404, {})
-        return FakeResponse(200, _load("x_fxtwitter.json"))
+        return FakeResponse(200, _load("x_note_mirror.json"))
 
     monkeypatch.setattr(x_fetcher.requests, "get", fake_get)
     article = x_fetcher.fetch(URL, retries=1)
 
-    assert "镜像接口返回的正文" in article.content
-    assert any("syndication" in c for c in calls), "必须先试官方接口"
-    assert any("fxtwitter" in c for c in calls)
+    assert calls == [c for c in calls if "fxtwitter" in c], "第一个请求就该打镜像"
+    assert "Bookmark this" in article.content, "长推文必须拿到全文，不能停在 280 字符"
+
+
+def test_镜像挂掉时回退到官方接口(monkeypatch):
+    calls = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        if "fxtwitter" in url:
+            return FakeResponse(503, {})
+        return FakeResponse(200, _load("x_post.json"))
+
+    monkeypatch.setattr(x_fetcher.requests, "get", fake_get)
+    article = x_fetcher.fetch(URL, retries=1)
+
+    assert "整理成一篇笔记" in article.content
+    assert any("fxtwitter" in c for c in calls) and any("syndication" in c for c in calls)
+
+
+def test_镜像取到长推文全文():
+    article = x_fetcher.parse_mirror(_load("x_note_mirror.json"), URL)
+    assert "Bookmark this" in article.content
+    assert "[视频]" in article.content
+    assert article.title == "", "普通长推文没有标题，留空交给 AI"
+
+
+def test_官方接口拿到的长推文是截断的():
+    """锁住这个事实：官方接口对长推文只给前 280 字符，且没有 note_tweet 可补。"""
+    content = x_fetcher.parse(_load("x_note_syndication.json"), URL).content
+    assert "Bookmark this" not in content
 
 
 def test_两个接口都失败时抛出抓取错误(monkeypatch):
@@ -174,10 +202,12 @@ def test_token_不含零与小数点():
     assert x_fetcher._token("1878571238879473738") == token, "同一条帖子的 token 必须稳定"
 
 
-def test_官方接口遇到长文时让位给镜像():
-    """官方接口只给标题和一小段预览，正文在镜像那边，必须让 fetch 继续往下试。"""
-    with pytest.raises(FetchError, match="长文"):
-        x_fetcher.parse(_load("x_article_syndication.json"), URL)
+def test_官方接口对长文退化为标题加预览():
+    """镜像挂掉时官方接口是兜底：正文给不了，但标题和预览总比只存一个链接强。"""
+    article = x_fetcher.parse(_load("x_article_syndication.json"), URL)
+    assert article.title == "我的 AI 开发流程"
+    assert "之前有网友问我我的 AI 开发流程" in article.content
+    assert "t.co" not in article.content
 
 
 def test_镜像解析长文取标题与全文():
