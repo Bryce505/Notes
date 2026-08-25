@@ -2,11 +2,9 @@
 name: 临时调试：X 接口原始响应
 
 on:
-  workflow_dispatch:
-    inputs:
-      url:
-        description: X 帖子链接
-        required: true
+  push:
+    paths:
+      - ".github/workflows/x-debug.yml"
 
 jobs:
   dump:
@@ -20,7 +18,7 @@ jobs:
       - name: 打印原始响应
         env:
           PYTHONPATH: src
-          X_URL: ${{ github.event.inputs.url }}
+          X_URL: https://x.com/dotey/status/2092014354946257338
         run: |
           python - <<'PY'
           import json, os, requests
