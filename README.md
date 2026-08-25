@@ -381,7 +381,21 @@ gh issue list --repo Bryce505/Notes --label clip-failed   # 失败记录
 
 **X 抓取主要依赖社区镜像 `api.fxtwitter.com`**：X 官方的嵌入接口虽然更"正统"，但实测正文残缺得厉害——超过 280 字符的长推文被直接截断且不给补全字段，长文只返回标题和约 80 字预览。三条真实帖子对照下来官方接口全军覆没，所以镜像被排在第一顺位，官方接口降为兜底。
 
-代价有两条，都摆在明面上：① 镜像是第三方志愿服务，不保证长期可用，挂掉时会退回官方接口，长推文会截断、长文只剩标题和预览；② 你剪藏了哪些帖子，这个第三方服务能看到。介意的话把 `src/clipper/x_fetcher.py` 里 `targets` 的两行顺序调回来即可，代价是长内容抓不全。
+代价有两条，都摆在明面上：
+
+1. **可用性不由自己掌控**。`api.fxtwitter.com` 是第三方志愿服务，不保证长期可用。它挂掉时会自动退回官方接口，普通短帖照常，但**长推文会被截断在 280 字符、长文只剩标题和预览**。
+2. **隐私**。你剪藏了哪些帖子，这个第三方服务能看到（它只看得到推文 ID，看不到你是谁、也看不到你的 Notion）。
+
+**怎么改回官方接口优先**：改一处，把 `src/clipper/x_fetcher.py` 的 `fetch()` 里 `targets` 那两行对调：
+
+```python
+    targets = (
+        (MIRROR.format(post_id=post_id), parse_mirror),                              # ← 把这两行
+        (f"{SYNDICATION}?id={post_id}&lang=zh-cn&token={_token(post_id)}", parse),   # ← 上下对调
+    )
+```
+
+对调后隐私问题没了（只有官方接口失败时才碰镜像），代价是**长推文和长文都只能拿到残缺正文**——这正是当初调换主次的原因，见 [`docs/superpowers/specs/2026-08-25-x-post-clipping-design.md`](docs/superpowers/specs/2026-08-25-x-post-clipping-design.md) 附二里的三条实测对照。改完记得跑 `python -m pytest -q`，有两个用例锁着抓取顺序，会提示你哪些断言需要跟着改。
 
 受保护账号、已删除的帖子两个接口都抓不到，会开 Issue 记录。
 
