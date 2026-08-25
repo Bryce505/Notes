@@ -1,4 +1,4 @@
-name: 剪藏公众号文章
+name: 剪藏文章与帖子
 
 on:
   repository_dispatch:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       urls:
-        description: 文章链接，多条用换行分隔；可用 TAB 在链接后指定剪藏日期(YYYY-MM-DD)
+        description: 公众号文章或 X 帖子链接，多条用换行分隔；可用 TAB 在链接后指定剪藏日期(YYYY-MM-DD)
         required: true
 
 permissions:
@@ -39,6 +39,7 @@ jobs:
           AI_MODEL: ${{ secrets.AI_MODEL }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_X_DATABASE_ID: ${{ secrets.NOTION_X_DATABASE_ID }}
           # 外部输入一律走环境变量，不拼进命令行，避免注入
           CLIP_URL: ${{ github.event.client_payload.url }}
           CLIP_URLS: ${{ github.event.inputs.urls }}

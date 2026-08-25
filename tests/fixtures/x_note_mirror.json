@@ -1,0 +1,18 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/0xSizer/status/2091916096202785177",
+    "id": "2091916096202785177",
+    "text": "Andrej Karpathy just compressed 8 years at OpenAI and Tesla into one free 2-hour lecture.\n\nThe progression it covers: Agents, then Loops, then Graphs, then Self-Improving Systems.\n\nTwo hours is a lot to ask on a weeknight. It is still shorter than the intro module of most paid AI courses.\n\nThe people who watch it tonight will be six months ahead of everyone who screenshots it and forgets. Bookmark this",
+    "author": {"screen_name": "0xSizer", "name": "Sizer", "id": "1342161882711535616"},
+    "created_at": "Mon Aug 24 15:50:37 +0000 2026",
+    "created_timestamp": 1787586637,
+    "is_note_tweet": true,
+    "replying_to": null,
+    "media": {
+      "videos": [{"id": "2091914361895813120", "url": "https://video.twimg.com/amplify_video/x.mp4", "type": "video"}],
+      "all": [{"id": "2091914361895813120", "type": "video"}]
+    }
+  }
+}

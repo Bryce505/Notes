@@ -1,0 +1,30 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/simonw/status/1878571238879473738",
+    "id": "1878571238879473738",
+    "text": "镜像接口返回的正文 https://t.co/mEdIa0001",
+    "author": {
+      "name": "Simon Willison",
+      "screen_name": "simonw"
+    },
+    "created_timestamp": 1787160600,
+    "media": {
+      "photos": [
+        {
+          "url": "https://pbs.twimg.com/media/GaBcDeF.jpg"
+        }
+      ]
+    },
+    "quote": {
+      "text": "被引用的那句话",
+      "author": {
+        "name": "Andrej Karpathy",
+        "screen_name": "karpathy"
+      }
+    },
+    "replying_to": "asker",
+    "lang": "zh"
+  }
+}

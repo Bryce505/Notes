@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import posixpath
 from urllib.parse import quote
 
 from .models import Entry
@@ -35,8 +36,10 @@ def render_entry(entry: Entry) -> str:
     if digest.priority_reason:
         lines.append(f"- **是否值得读**：{digest.priority_reason}")
 
-    # 标题里的中文标点会进文件名，链接必须编码，否则 GitHub 上点不开
-    relative_snapshot = quote(f"../{entry.snapshot_path}", safe="/.")
+    # 标题里的中文标点会进文件名，链接必须编码，否则 GitHub 上点不开；
+    # 相对层级用 relpath 算，X 的索引在 notes/x/ 下要多退一层
+    relative = posixpath.relpath(entry.snapshot_path, posixpath.dirname(entry.notes_path))
+    relative_snapshot = quote(relative, safe="/.")
     lines.append(
         f"- **链接**：[原文]({article.url}) ｜ [全文快照]({relative_snapshot})"
     )
@@ -54,7 +57,7 @@ def render_snapshot(entry: Entry) -> str:
         f"- 剪藏时间：{entry.clipped_at.strftime('%Y-%m-%d %H:%M')}",
     ]
     if article.account:
-        header.insert(3, f"- 公众号：{article.account}")
+        header.insert(3, f"- {'作者' if article.source == 'x' else '公众号'}：{article.account}")
     header += ["", "---", "", article.content, ""]
     return "\n".join(header)
 

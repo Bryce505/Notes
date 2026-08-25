@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from . import ai, fetcher, md_writer
+from . import ai, fetcher, md_writer, x_fetcher
 from .config import Config
 from .models import Entry
 from .store import Store
@@ -45,8 +45,10 @@ def clip(
             message="已剪藏过，跳过",
         )
 
+    # 按域名分发：手机端不用区分链接类型，同一个小组件发什么都行
+    fetch = x_fetcher.fetch if x_fetcher.is_x_url(url) else fetcher.fetch
     try:
-        article = fetcher.fetch(url, timeout=config.request_timeout)
+        article = fetch(url, timeout=config.request_timeout)
     except Exception as exc:  # noqa: BLE001 - 统一上报抓取失败
         return Result(url=url, status="failed", message=f"抓取失败：{exc}")
 
@@ -66,7 +68,7 @@ def clip(
 
     notion_page_id = None
     notion_error = ""
-    if config.notion_enabled:
+    if config.notion_enabled_for(article.source):
         try:
             from .notion_writer import NotionWriter
 

@@ -90,3 +90,24 @@ def test_模型不支持_json_模式时自动去掉该参数重试(config, monke
     assert ai._call("prompt", config) == RAW
     assert len(calls) == 2
     assert "response_format" in calls[0] and "response_format" not in calls[1]
+
+
+def _captured_system(monkeypatch, art, config):
+    seen = {}
+
+    def fake_call(prompt, cfg, system):
+        seen["system"] = system
+        return RAW
+
+    monkeypatch.setattr(ai, "_call", fake_call)
+    ai.digest(art, config)
+    return seen["system"]
+
+
+def test_x_帖子追加专用提示词(x_article, config, monkeypatch):
+    system = _captured_system(monkeypatch, x_article, config)
+    assert ai.X_PROMPT_HINT in system
+
+
+def test_公众号提示词保持原样(article, config, monkeypatch):
+    assert _captured_system(monkeypatch, article, config) == ai.SYSTEM_PROMPT

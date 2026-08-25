@@ -42,3 +42,24 @@ def test_超长段落切成多个块(entry):
 def test_长文章块数可超过单次上限(entry):
     entry.article.content = "\n\n".join(f"第{i}段" for i in range(250))
     assert len(build_blocks(entry)) > BLOCK_LIMIT
+
+
+def test_按来源选择数据库(entry, x_entry, monkeypatch):
+    from clipper.config import Config
+    from clipper.notion_writer import NotionWriter
+
+    config = Config(notion_token="t", notion_database_id="db-weixin", notion_x_database_id="db-x")
+    writer = NotionWriter(config)
+    seen = {}
+
+    def fake_request(method, path, payload):
+        seen[path] = payload
+        return {"id": "page-id"}
+
+    monkeypatch.setattr(writer, "_request", fake_request)
+
+    writer.create_page(entry)
+    assert seen["/pages"]["parent"]["database_id"] == "db-weixin"
+
+    writer.create_page(x_entry)
+    assert seen["/pages"]["parent"]["database_id"] == "db-x"

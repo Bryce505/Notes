@@ -14,6 +14,7 @@ class Config:
     ai_model: str = "deepseek-chat"
     notion_token: Optional[str] = None
     notion_database_id: Optional[str] = None
+    notion_x_database_id: Optional[str] = None
     repo_dir: str = "."
     max_content_chars: int = 20000
     request_timeout: int = 30
@@ -26,12 +27,16 @@ class Config:
             ai_model=os.getenv("AI_MODEL", "deepseek-chat"),
             notion_token=os.getenv("NOTION_TOKEN") or None,
             notion_database_id=os.getenv("NOTION_DATABASE_ID") or None,
+            notion_x_database_id=os.getenv("NOTION_X_DATABASE_ID") or None,
             repo_dir=os.getenv("REPO_DIR", "."),
             max_content_chars=int(os.getenv("MAX_CONTENT_CHARS", "20000")),
             request_timeout=int(os.getenv("REQUEST_TIMEOUT", "30")),
         )
 
-    @property
-    def notion_enabled(self) -> bool:
-        """未配置 Notion 时自动降级为只写 md，不阻断流程。"""
-        return bool(self.notion_token and self.notion_database_id)
+    def database_id_for(self, source: str) -> Optional[str]:
+        """公众号与 X 各用一个数据库，互不干扰。"""
+        return self.notion_x_database_id if source == "x" else self.notion_database_id
+
+    def notion_enabled_for(self, source: str) -> bool:
+        """未配置对应的 Notion 库时自动降级为只写 md，不阻断流程。"""
+        return bool(self.notion_token and self.database_id_for(source))

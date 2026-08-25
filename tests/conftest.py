@@ -41,3 +41,24 @@ def entry(article, digest) -> Entry:
 @pytest.fixture
 def config(tmp_path) -> Config:
     return Config(ai_api_key="test-key", repo_dir=str(tmp_path))
+
+
+@pytest.fixture
+def x_article() -> Article:
+    return Article(
+        url="https://x.com/simonw/status/1878571238879473738",
+        title="刚把 Claude Code 的 hooks 用法整理成一篇笔记",
+        content="刚把 Claude Code 的 hooks 用法整理成一篇笔记\n\n[图片]",
+        published_at="2026-08-20",
+        account="Simon Willison @simonw",
+        source="x",
+    )
+
+
+@pytest.fixture
+def x_entry(x_article, digest) -> Entry:
+    return Entry(
+        article=x_article,
+        digest=digest,
+        clipped_at=datetime(2026, 8, 20, 19, 44, tzinfo=CST),
+    )
