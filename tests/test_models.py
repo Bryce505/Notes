@@ -74,3 +74,16 @@ def test_其他站点的_status_路径不当成_x_帖子():
     value = fingerprint("https://example.com/foo/status/123")
     assert not value.startswith("x-")
     assert len(value) == 40
+
+
+def test_抓取和_ai_都没给标题时用正文首句兜底(x_entry):
+    x_entry.article.title = ""
+    x_entry.digest.title = None
+    assert x_entry.title.startswith("刚把 Claude Code")
+
+
+def test_正文也是空时才叫无标题(x_entry):
+    x_entry.article.title = ""
+    x_entry.digest.title = None
+    x_entry.article.content = ""
+    assert x_entry.title == "无标题"

@@ -83,10 +83,6 @@ def test_发布时间按东八区计算(post):
     assert x_fetcher.parse(post, URL).published_at == "2026-08-20"
 
 
-def test_标题降级取首句(post):
-    assert x_fetcher.parse(post, URL).title.startswith("刚把 Claude Code")
-
-
 def test_长推文取完整正文而非截断正文(note):
     content = x_fetcher.parse(note, URL).content
     assert "结论——先做减法，再谈扩容" in content
@@ -176,3 +172,29 @@ def test_token_不含零与小数点():
     token = x_fetcher._token("1878571238879473738")
     assert token and "0" not in token and "." not in token
     assert x_fetcher._token("1878571238879473738") == token, "同一条帖子的 token 必须稳定"
+
+
+def test_官方接口遇到长文时让位给镜像():
+    """官方接口只给标题和一小段预览，正文在镜像那边，必须让 fetch 继续往下试。"""
+    with pytest.raises(FetchError, match="长文"):
+        x_fetcher.parse(_load("x_article_syndication.json"), URL)
+
+
+def test_镜像解析长文取标题与全文():
+    article = x_fetcher.parse_mirror(_load("x_article_mirror.json"), URL)
+    assert article.title == "我的 AI 开发流程"
+    assert "先做可行性分析" in article.content
+    assert "我把自己当成 QA" in article.content, "最后一段也要在，不能只取预览"
+    assert "[图片]" in article.content
+    assert article.account == "宝玉 @dotey"
+    assert article.published_at == "2026-08-25"
+
+
+def test_长文缺正文块时退回预览文本():
+    data = {"tweet": {"text": "https://x.com/i/article/1", "author": {"screen_name": "a"},
+                      "article": {"title": "标题", "preview_text": "只有预览。"}}}
+    assert x_fetcher.parse_mirror(data, URL).content == "只有预览。"
+
+
+def test_普通帖子不自造标题(post):
+    assert x_fetcher.parse(post, URL).title == "", "普通帖子没有标题，留空交给 AI 拟"

@@ -29,7 +29,6 @@ USER_AGENT = (
 _URL = re.compile(r"^https?://(?:[\w-]+\.)*(?:x|twitter)\.com/[^/]+/status/(\d+)", re.I)
 _BARE_TCO = re.compile(r"\s*https?://t\.co/\w+")
 _CST = timezone(timedelta(hours=8))
-_TITLE_LIMIT = 40
 
 
 def is_x_url(url: str) -> bool:
@@ -65,6 +64,10 @@ def parse(data: dict, url: str) -> Article:
     if data.get("__typename") in ("TweetTombstone", "TweetUnavailable"):
         raise FetchError(f"帖子已删除或不可见：{url}")
 
+    if data.get("article"):
+        # X 长文：这个接口只给标题和一小段预览，正文在镜像那边，让 fetch 继续往下试
+        raise FetchError(f"X 长文，官方接口没有正文：{url}")
+
     text = _clean(data)
     if not text:
         raise FetchError(f"帖子正文为空：{url}")
@@ -81,7 +84,7 @@ def parse(data: dict, url: str) -> Article:
 
     return Article(
         url=url,
-        title=_fallback_title(text),
+        title="",  # 帖子没有标题，留空由 AI 拟；AI 也失败时 Entry 会用正文首句兜底
         content="\n\n".join(s for s in sections if s),
         published_at=_date(data.get("created_at")),
         account=_account(data.get("user")),
@@ -92,7 +95,10 @@ def parse(data: dict, url: str) -> Article:
 def parse_mirror(data: dict, url: str) -> Article:
     """解析镜像接口的响应，字段名与官方接口不同。"""
     tweet = data.get("tweet") or {}
-    text = _strip_tco(tweet.get("text"))
+    article = tweet.get("article") or {}
+    # 长文的正文在 article.content.blocks 里；退一步取预览，再退一步取推文本身
+    text = _article_body(article) or str(article.get("preview_text") or "").strip()
+    text = text or _strip_tco(tweet.get("text"))
     if not text:
         raise FetchError(f"镜像接口没有返回正文：{url}")
 
@@ -112,7 +118,7 @@ def parse_mirror(data: dict, url: str) -> Article:
     stamp = tweet.get("created_timestamp")
     return Article(
         url=url,
-        title=_fallback_title(text),
+        title=str(article.get("title") or "").strip(),  # 长文有真标题，普通帖子留空给 AI
         content="\n\n".join(s for s in sections if s),
         published_at=datetime.fromtimestamp(int(stamp), _CST).strftime("%Y-%m-%d") if stamp else None,
         account=_account(tweet.get("author")),
@@ -212,7 +218,14 @@ def _date(created_at: Optional[str]) -> Optional[str]:
     return stamp.astimezone(_CST).strftime("%Y-%m-%d")
 
 
-def _fallback_title(text: str) -> str:
-    """帖子没有标题。AI 会拟一个中文标题，这里只留首句做降级。"""
-    first = next((line.strip() for line in text.splitlines() if line.strip()), "")
-    return f"{first[:_TITLE_LIMIT]}…" if len(first) > _TITLE_LIMIT else first
+def _article_body(article: dict) -> str:
+    """X 长文正文：Draft.js 风格的块数组，atomic 块是图片等富媒体。"""
+    lines = []
+    for block in (article.get("content") or {}).get("blocks") or []:
+        if block.get("type") == "atomic":
+            lines.append("[图片]")
+            continue
+        text = str(block.get("text") or "").strip()
+        if text:
+            lines.append(text)
+    return "\n\n".join(lines)

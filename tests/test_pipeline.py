@@ -122,7 +122,7 @@ def fake_x_fetch(monkeypatch, x_article):
         "fetch",
         lambda url, timeout=30, retries=3: Article(
             url=url,
-            title=x_article.title,
+            title="",  # 普通帖子没有标题，与真实抓取器一致
             content=x_article.content,
             published_at=x_article.published_at,
             account=x_article.account,
@@ -150,7 +150,7 @@ def test_x_帖子采用_ai_拟的中文标题(config, fake_x_fetch, monkeypatch,
     assert result.title == "Claude Code hooks 用法笔记"
 
 
-def test_ai_没给标题时保留抓取侧的降级标题(config, fake_x_fetch, monkeypatch, digest):
+def test_ai_没给标题时用正文首句兜底(config, fake_x_fetch, monkeypatch, digest):
     digest.title = None
     monkeypatch.setattr(pipeline.ai, "digest", lambda article, config: digest)
 

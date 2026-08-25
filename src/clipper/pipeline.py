@@ -53,8 +53,7 @@ def clip(
         return Result(url=url, status="failed", message=f"抓取失败：{exc}")
 
     digest = ai.digest(article, config)
-    # X 帖子本身没有标题，抓取侧只留了首句降级用，AI 拟的中文标题更适合扫读
-    if digest.title and (not article.title or article.source == "x"):
+    if not article.title and digest.title:
         article.title = digest.title
 
     entry = Entry(article=article, digest=digest, clipped_at=clipped_at or datetime.now(CST))

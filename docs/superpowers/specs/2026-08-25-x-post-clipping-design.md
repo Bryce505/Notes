@@ -108,3 +108,28 @@ pipeline.clip()
 ### 已知的验证缺口
 
 开发所在的沙箱网络策略拦截了 `cdn.syndication.twimg.com` 与 `api.fxtwitter.com`（CONNECT 403），**真实抓取无法在开发环境验证**。fixture 依据的是这两个接口的公开响应结构。首条真实链接的验证要在 GitHub Actions 里做；若字段名对不上，改动集中在 `x_fetcher.parse()` 一个函数内。
+
+---
+
+## 附：X 长文（Article）—— 实测补充
+
+首次真实剪藏（[run 32813566222](https://github.com/Bryce505/Notes/actions/runs/32813566222)）用的是一条 X 长文，暴露出设计时没预料到的一类形态：
+
+**长文帖子的本体只有一个指向文章的链接**，正文属于 `x.com/i/article/<id>` 这个独立对象。按原设计只会归档下这么一行：
+
+```
+https://x.com/i/article/2092012262596780032
+```
+
+用一次性调试 workflow 打出两个接口的原始响应（看完即删）后确认：
+
+| 接口 | 长文正文 | 给了什么 |
+|---|---|---|
+| `cdn.syndication.twimg.com` | ❌ | `article.title` + 约 80 字 `article.preview_text` + 封面图 |
+| `api.fxtwitter.com` | ✅ | `tweet.article.content.blocks[]`，Draft.js 风格的完整正文块 |
+
+**处理方式**：`parse()` 一旦发现 `article` 字段就抛 `FetchError`，让 `fetch()` 现成的回退逻辑接着去试镜像；`parse_mirror()` 从 `content.blocks` 拼正文，`atomic` 块渲染成 `[图片]`，标题直接用作者写的 `article.title`。取不到块时退回 `preview_text`，再退回推文本身。
+
+**顺带简化**：抓取侧不再为普通帖子自造标题（`_fallback_title` 删掉），改由 `Entry.title` 统一兜底 —— 抓取标题 → AI 标题 → 正文首句 → 「无标题」。这样长文用作者的真标题、普通帖子用 AI 拟的中文标题，`pipeline` 里那条 X 特判也随之删除，两个来源共用一条规则。
+
+**代价**：长文的全文只有镜像有。镜像挂掉时长文会剪藏失败并开 Issue，普通帖子不受影响。

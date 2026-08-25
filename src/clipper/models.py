@@ -51,7 +51,7 @@ class Entry:
 
     @property
     def title(self) -> str:
-        return self.article.title or self.digest.title or "无标题"
+        return self.article.title or self.digest.title or _first_line(self.article.content)
 
     @property
     def month(self) -> str:
@@ -88,6 +88,14 @@ class Entry:
     @property
     def notes_path(self) -> str:
         return f"notes/{self.path_prefix}{self.month}.md"
+
+
+def _first_line(text: str, limit: int = 40) -> str:
+    """标题兜底：抓取与 AI 都没给出标题时（X 帖子 + AI 降级），用正文首句顶上。"""
+    first = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    if not first:
+        return "无标题"
+    return f"{first[:limit]}…" if len(first) > limit else first
 
 
 def fingerprint(url: str) -> str:

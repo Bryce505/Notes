@@ -39,7 +39,7 @@ GitHub Actions（Python，约 15 秒）
       ├─ 查重（data/index.json）
       ├─ 抓取正文 ── 按域名分流
       │     ├─ mp.weixin.qq.com → 解析文章页面
-      │     └─ x.com / twitter.com → X 嵌入接口（失败回退社区镜像）
+      │     └─ x.com / twitter.com → X 嵌入接口（长文与失败时回退社区镜像）
       ├─ AI 消化（摘要 / 关键词 / 洞见 / 优先级；X 帖子额外要求拟中文标题）
       ├─ 写 Notion（公众号库 / X 库，按来源选）
       └─ 写 md 归档并自动提交（notes/ 与 notes/x/）
@@ -57,7 +57,7 @@ GitHub Actions（Python，约 15 秒）
 | `archive/x/YYYY-MM/*.md` | 每条 X 帖子的全文快照 |
 | `data/index.json` | 剪藏索引，用于查重 |
 | `src/clipper/` | 处理流水线源码 |
-| `tests/` | 单元测试（88 项） |
+| `tests/` | 单元测试（93 项） |
 | `docs/superpowers/specs/` | 设计文档 |
 
 ---
@@ -276,6 +276,8 @@ NOTION_TOKEN=<你的令牌> python -m clipper init-notion --parent-page <页面I
 
 一条帖子会抓到：正文（**长推文取完整全文**，不是被截断的那段）、作者、发布时间、它引用的帖子、它回复的上一条；图片和视频以 `[图片]` / `[视频]` 占位，`t.co` 短链还原成原始链接。
 
+**X 长文（Article）**也支持。这类帖子本体只有一个指向文章的链接，正文在 `x.com/i/article/<id>` 里——官方嵌入接口只给标题和一小段预览，所以遇到长文会自动改走镜像接口取全文，标题直接用作者写的那个。
+
 ---
 
 # 二、日常使用
@@ -379,6 +381,8 @@ gh issue list --repo Bryce505/Notes --label clip-failed   # 失败记录
 
 **X 抓取走的是嵌入接口**：用的是网页里嵌入推文所用的公开接口，免鉴权免 Cookie，但它不保证长期可用；官方接口失败时会自动回退到社区镜像 `api.fxtwitter.com`。受保护账号、已删除的帖子抓不到，会开 Issue 记录。
 
+**X 长文依赖镜像接口**：官方嵌入接口对长文只返回标题和约 80 字预览，全文只有镜像 `api.fxtwitter.com` 给。镜像哪天挂了，长文就会剪藏失败并开 Issue（普通帖子不受影响，官方接口够用）。
+
 **图片不入库**：正文中的图片以 `[图片]` 占位，微信图床有防盗链，存链接也显示不出来。
 
 ---
@@ -386,7 +390,7 @@ gh issue list --repo Bryce505/Notes --label clip-failed   # 失败记录
 # 六、本地开发
 
 ```bash
-python -m pytest -q      # 88 项测试
+python -m pytest -q      # 93 项测试
 ```
 
 本机固定使用 `D:\Anaconda\envs\dev\python.exe`，运行前设 `PYTHONNOUSERSITE=1`；安装依赖须带代理参数：
