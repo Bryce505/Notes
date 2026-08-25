@@ -23,7 +23,7 @@
 
 ## 提交与推送
 
-- 完成一次改动后(而不是每改一行就提交),及时 `commit` + `push`,避免云端 VM 回收后未提交的改动丢失(原因见 [`docs/claude-code-cloud-notes.md`](docs/claude-code-cloud-notes.md))。
+- 完成一次改动后(而不是每改一行就提交),及时 `commit` + `push`,避免云端 VM 回收后未提交的改动丢失。
 - commit message 用中文。
 - push 到当前工作分支,不要直接推送到默认分支 `master`(修改仓库级配置文件如本文件除外,需用户明确要求)。
 
