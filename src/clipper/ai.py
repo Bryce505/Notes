@@ -31,6 +31,14 @@ SYSTEM_PROMPT = """你是一位帮助读者做「稍后阅读」筛选的中文�
 判断优先级的标准：信息密度高、有独到观点或可操作方法的为「高」；常规科普、观点重复的为「中」；
 营销软文、纯资讯罗列、标题党的为「低」。"""
 
+X_PROMPT_HINT = """
+
+本条来源是 X（原推特）帖子，不是长文，按下面几点调整：
+- 摘要压到 50-120 字，说清楚作者主张什么、给了什么依据或例子；
+- 原文常是英文，输出一律用中文；
+- title 字段必填：给这条帖子拟一个 20 字以内的中文标题；
+- 只是转发链接、纯情绪表达或广告的帖子，优先级判「低」。"""
+
 _JSON_BLOCK = re.compile(r"\{.*\}", re.S)
 
 
@@ -42,11 +50,12 @@ def digest(article: Article, config: Config, retries: int = 2) -> Digest:
     """消化文章。彻底失败时返回降级 Digest，保证链接与正文仍能落库。"""
     content = truncate(article.content, config.max_content_chars)
     prompt = f"标题：{article.title or '（未抓取到）'}\n\n正文：\n{content}"
+    system = SYSTEM_PROMPT + (X_PROMPT_HINT if article.source == "x" else "")
 
     last_error: Optional[Exception] = None
     for _ in range(retries):
         try:
-            raw = _call(prompt, config)
+            raw = _call(prompt, config, system)
             return _parse(raw)
         except Exception as exc:  # noqa: BLE001 - 网络与解析异常都重试
             last_error = exc
@@ -79,14 +88,14 @@ def endpoint(base_url: str) -> str:
     return f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
 
 
-def _call(prompt: str, config: Config) -> str:
+def _call(prompt: str, config: Config, system: str = SYSTEM_PROMPT) -> str:
     if not config.ai_api_key:
         raise AIError("未配置 AI_API_KEY")
 
     payload = {
         "model": config.ai_model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.3,

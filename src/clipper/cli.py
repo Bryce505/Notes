@@ -28,7 +28,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     init = sub.add_parser("init-notion", help="在指定 Notion 页面下创建数据库")
     init.add_argument("--parent-page", required=True, help="父页面 ID（32 位十六进制）")
-    init.add_argument("--title", default="公众号剪藏")
+    init.add_argument("--title", default="公众号剪藏", help="数据库名，建 X 库时可填「X 剪藏」")
 
     args = parser.parse_args(argv)
     config = Config.from_env()
@@ -72,7 +72,11 @@ def _init_notion(config: Config, parent_page: str, title: str) -> int:
     from .notion_writer import NotionWriter
 
     database_id = NotionWriter(config).init_database(parent_page, title)
-    print(f"数据库已创建，请把下面这行填进 GitHub Secrets 的 NOTION_DATABASE_ID：\n{database_id}")
+    print(
+        "数据库已创建，请把下面这行填进 GitHub Secrets："
+        "公众号库填 NOTION_DATABASE_ID，X 库填 NOTION_X_DATABASE_ID\n"
+        f"{database_id}"
+    )
     return 0
 
 

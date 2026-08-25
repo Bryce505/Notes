@@ -1,13 +1,17 @@
 # Notes
 
-微信公众号文章剪藏助手:抓取公众号文章正文,AI 生成摘要 / 关键词 / 洞见 / 优先级,写入 Notion,并在本仓库归档 Markdown 快照。详见 [`README.md`](README.md)。
+剪藏助手:抓取**微信公众号文章**与 **X(原推特)帖子**正文,AI 生成摘要 / 关键词 / 洞见 / 优先级,写入 Notion,并在本仓库归档 Markdown 快照。详见 [`README.md`](README.md)。
+
+两条链路共用一条流水线,按链接域名自动分流(`pipeline.clip()`),只有抓取器、AI 提示词补充段落、归档目录和 Notion 数据库是分开的。
 
 ## 仓库结构
 
 | 路径 | 内容 |
 |---|---|
-| `notes/YYYY-MM.md` | 月度索引,按剪藏时间分组,最新的在最上面 |
-| `archive/YYYY-MM/*.md` | 每篇文章的全文快照 |
+| `notes/YYYY-MM.md` | 公众号月度索引,按剪藏时间分组,最新的在最上面 |
+| `archive/YYYY-MM/*.md` | 每篇公众号文章的全文快照 |
+| `notes/x/YYYY-MM.md` | X 帖子月度索引,格式同上 |
+| `archive/x/YYYY-MM/*.md` | 每条 X 帖子的全文快照 |
 | `data/index.json` | 剪藏索引,用于查重 |
 | `src/clipper/` | 处理流水线源码 |
 | `tests/` | 单元测试 |

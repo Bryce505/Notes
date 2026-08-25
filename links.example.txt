@@ -2,3 +2,5 @@
 # 想保留原始收藏日期时，在链接后用 TAB 分隔写上 YYYY-MM-DD
 https://mp.weixin.qq.com/s/xxxxxxxxxxxx
 https://mp.weixin.qq.com/s/yyyyyyyyyyyy	2026-07-15
+# 公众号文章和 X 帖子可以混在同一个文件里，按域名自动分流
+https://x.com/someone/status/1878571238879473738

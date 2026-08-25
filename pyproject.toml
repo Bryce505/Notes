@@ -1,7 +1,7 @@
 [project]
 name = "weixin-note-clipper"
 version = "0.1.0"
-description = "微信公众号文章剪藏助手：抓取正文、AI 消化、写入 Notion 与 GitHub 归档"
+description = "剪藏助手：抓取微信公众号文章与 X 帖子正文、AI 消化、写入 Notion 与 GitHub 归档"
 requires-python = ">=3.11"
 dependencies = [
     "requests>=2.31",

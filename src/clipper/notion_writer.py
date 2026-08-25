@@ -66,7 +66,7 @@ class NotionWriter:
         """建页并写入全文快照，返回 page id。"""
         blocks = build_blocks(entry)
         payload = {
-            "parent": {"database_id": self.config.notion_database_id},
+            "parent": {"database_id": self.config.database_id_for(entry.article.source)},
             "properties": build_properties(entry),
             "children": blocks[:BLOCK_LIMIT],
         }

@@ -1,0 +1,42 @@
+{
+  "__typename": "Tweet",
+  "lang": "en",
+  "id_str": "1878571238879473739",
+  "created_at": "2026-08-19T17:30:00.000Z",
+  "text": "写了一段关于上下文工程的想法，长文见下 https://t.co/trunc0001",
+  "user": {
+    "name": "Some Author",
+    "screen_name": "someauthor"
+  },
+  "entities": {
+    "urls": []
+  },
+  "note_tweet": {
+    "note_tweet_results": {
+      "result": {
+        "text": "第一段：上下文工程的关键不是把窗口撑大。\n\n第二段：真正决定效果的是检索质量与信息排序。\n\n第三段：结论——先做减法，再谈扩容。",
+        "entity_set": {
+          "urls": []
+        }
+      }
+    }
+  },
+  "parent": {
+    "__typename": "Tweet",
+    "id_str": "1878500000000000000",
+    "text": "有人问长上下文到底有没有用？",
+    "user": {
+      "name": "Asker",
+      "screen_name": "asker"
+    },
+    "created_at": "2026-08-19T17:30:00.000Z"
+  },
+  "video": {
+    "variants": [
+      {
+        "type": "video/mp4",
+        "src": "https://video.twimg.com/x.mp4"
+      }
+    ]
+  }
+}

@@ -12,6 +12,9 @@ from urllib.parse import parse_qs, urlparse
 # 文件名中的非法字符
 _ILLEGAL_CHARS = re.compile(r'[\/:*?"<>|\r\n\t]+')
 
+# X 的域名，含 www. / mobile. 等前缀
+_X_HOST = re.compile(r"(^|\.)(x|twitter)\.com$", re.I)
+
 
 @dataclass
 class Article:
@@ -21,7 +24,8 @@ class Article:
     title: str
     content: str
     published_at: Optional[str] = None  # YYYY-MM-DD
-    account: Optional[str] = None       # 公众号名，抓到就留档
+    account: Optional[str] = None       # 公众号名 / X 作者，抓到就留档
+    source: str = "weixin"              # weixin / x，决定归档目录与 Notion 库
 
 
 @dataclass
@@ -64,29 +68,44 @@ class Entry:
 
     @property
     def slug(self) -> str:
-        """快照文件名：清洗标题 + 指纹前 6 位，避免重名与非法字符。"""
+        """快照文件名：清洗标题 + 6 位指纹，避免重名与非法字符。
+
+        推文 ID 是雪花号，同一时期的前缀完全相同，所以 X 取尾 6 位才有区分度。
+        """
         clean = _ILLEGAL_CHARS.sub("", self.title).strip().replace(" ", "_")
-        return f"{clean[:60] or 'untitled'}-{self.fingerprint[:6]}"
+        mark = self.fingerprint[-6:] if self.article.source == "x" else self.fingerprint[:6]
+        return f"{clean[:60] or 'untitled'}-{mark}"
+
+    @property
+    def path_prefix(self) -> str:
+        """X 帖子归档到独立子目录：短帖量大，混进文章索引会把文章淹掉。"""
+        return "x/" if self.article.source == "x" else ""
 
     @property
     def snapshot_path(self) -> str:
-        return f"archive/{self.month}/{self.slug}.md"
+        return f"archive/{self.path_prefix}{self.month}/{self.slug}.md"
 
     @property
     def notes_path(self) -> str:
-        return f"notes/{self.month}.md"
+        return f"notes/{self.path_prefix}{self.month}.md"
 
 
 def fingerprint(url: str) -> str:
     """生成稳定的文章指纹，用于查重。
 
-    优先取短链的 ``/s/<id>``；其次取 query 中的 ``sn``（微信文章唯一标识）；
+    公众号：优先取短链的 ``/s/<id>``；其次取 query 中的 ``sn``（文章唯一标识）。
+    X：取 ``/status/<id>``，这样 x.com 与 twitter.com、大小写不同的用户名指向同一条。
     都取不到时回退为去掉 query 后整串的 sha1。
     """
     parsed = urlparse(url)
     match = re.match(r"^/s/([A-Za-z0-9_\-]+)", parsed.path)
     if match:
         return match.group(1)
+
+    if _X_HOST.search(parsed.netloc):
+        match = re.search(r"/status/(\d+)", parsed.path)
+        if match:
+            return f"x-{match.group(1)}"
 
     query = parse_qs(parsed.query)
     if query.get("sn"):

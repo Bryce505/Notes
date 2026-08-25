@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from urllib.parse import unquote
 
 from clipper import md_writer
 from clipper.models import Entry
@@ -65,3 +66,19 @@ def test_快照链接做_url_编码(entry):
     assert "？" not in link, "全角标点必须编码，否则 GitHub 上链接失效"
     assert link.startswith("../archive/2026-08/")
     assert link.endswith(".md")
+
+
+def test_x_快照头部标注作者而非公众号(x_entry, tmp_path):
+    _, snapshot = md_writer.write(x_entry, str(tmp_path))
+    text = (tmp_path / snapshot).read_text(encoding="utf-8")
+    assert "- 作者：Simon Willison @simonw" in text
+    assert "公众号" not in text
+
+
+def test_x_索引里的快照链接多退一层目录(x_entry, tmp_path):
+    md_writer.write(x_entry, str(tmp_path))
+    index = tmp_path / "notes" / "x" / "2026-08.md"
+    link = index.read_text(encoding="utf-8").split("[全文快照](")[1].split(")")[0]
+    assert link.startswith("../../archive/x/2026-08/")
+    # 相对链接必须能在文件系统上真的走到快照
+    assert os.path.exists(os.path.join(str(index.parent), *unquote(link).split("/")))
