@@ -1,0 +1,49 @@
+# 临时调试用，看完 X 接口的原始响应就删。
+name: 临时调试：X 接口原始响应
+
+on:
+  push:
+    paths:
+      - ".github/workflows/x-debug.yml"
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: 打印原始响应
+        env:
+          PYTHONPATH: src
+          X_URLS: "2091916096202785177 2091868687493951598"
+        run: |
+          python - <<'PY'
+          import json, os, requests
+          from clipper import x_fetcher
+
+          post_ids = os.environ["X_URLS"].split()
+          targets = [
+              t
+              for post_id in post_ids
+              for t in (
+                  f"{x_fetcher.SYNDICATION}?id={post_id}&lang=zh-cn&token={x_fetcher._token(post_id)}",
+                  x_fetcher.MIRROR.format(post_id=post_id),
+              )
+          ]
+          for target in targets:
+              print("=" * 30)
+              print(target)
+              try:
+                  response = requests.get(
+                      target, headers={"User-Agent": x_fetcher.USER_AGENT}, timeout=30
+                  )
+                  print("HTTP", response.status_code)
+                  data = response.json()
+                  print("顶层字段：", sorted(data.keys()))
+                  print(json.dumps(data, ensure_ascii=False)[:5000])
+              except Exception as exc:
+                  print("失败：", type(exc).__name__, exc)
+          PY
